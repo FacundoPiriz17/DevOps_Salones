@@ -347,6 +347,10 @@ export default function SalasPage() {
                         {sala.tipo_sala}
                       </p>
                       <p>
+                        <span className="font-semibold">Equipamiento:</span>{" "}
+                        {sala.equipamiento || "No especificado"}
+                      </p>
+                      <p>
                         <span className="font-semibold">Puntaje:</span>{" "}
                         {sala.puntaje}/5 ⭐
                       </p>

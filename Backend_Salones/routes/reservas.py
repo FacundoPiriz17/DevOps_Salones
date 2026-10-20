@@ -76,6 +76,7 @@ def aniadirReserva():
     ci = data.get("ci")
     estado = data.get("estado")
     participantes_ci = data.get("participantes_ci", [])
+    study_group_id = data.get("studyGroupId")
 
     if not all([nombre_sala, edificio, fecha, id_turno, ci]):
         return jsonify({'error': 'Faltan datos requeridos'}), 400
@@ -100,6 +101,26 @@ def aniadirReserva():
     cusr.close()
 
     try:
+        if study_group_id is not None:
+            group_cur = conection.cursor(dictionary=True)
+            group_cur.execute("""
+                SELECT leader
+                  FROM studyGroup
+                 WHERE studyGroupId = %s
+                   AND status = 'Activo'
+            """, (study_group_id,))
+            group = group_cur.fetchone()
+            if not group or int(group["leader"]) != int(ci):
+                group_cur.close()
+                return jsonify({"error": "El organizador debe ser el líder de un grupo activo"}), 400
+            group_cur.execute("""
+                SELECT member
+                  FROM studyGroupParticipant
+                 WHERE studyGroupId = %s
+            """, (study_group_id,))
+            participantes_ci = [row["member"] for row in group_cur.fetchall()]
+            group_cur.close()
+
         validate_reserva_fecha(fecha)
 
         ok, msg = validar_disponibilidad_sala(nombre_sala, edificio)
@@ -121,10 +142,10 @@ def aniadirReserva():
         ensure_no_solapamiento_de_reserva(conection, nombre_sala, edificio, fecha, id_turno)
 
         cursor.execute("""
-                       INSERT INTO reserva (nombre_sala, edificio, fecha, id_turno, estado, ci_organizador)
-                       VALUES (%s, %s, %s, %s, %s, %s)
-                       """, (nombre_sala, edificio, fecha, id_turno, estado, ci))
-        conection.commit()
+                       INSERT INTO reserva
+                       (nombre_sala, edificio, fecha, id_turno, estado, ci_organizador, studyGroupId)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s)
+                       """, (nombre_sala, edificio, fecha, id_turno, estado, ci, study_group_id))
         id_reserva = cursor.lastrowid
 
         ensure_reglas_usuario(conection, ci, id_reserva)
@@ -134,13 +155,21 @@ def aniadirReserva():
                        (ci_participante, id_reserva, fecha_solicitud_reserva, asistencia, confirmacion)
                        VALUES (%s, %s, %s, %s, %s)
                        """, (ci, id_reserva, _date.today().strftime("%Y-%m-%d"), 'Asiste', 'Confirmado'))
-        conection.commit()
-
+        if study_group_id is not None:
+            group_members = [member for member in participantes_ci if int(member) != int(ci)]
+            for member in group_members:
+                cursor.execute("""
+                    INSERT INTO reservaParticipante
+                    (ci_participante, id_reserva, fecha_solicitud_reserva, asistencia, confirmacion)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (member, id_reserva, _date.today().strftime("%Y-%m-%d"), 'Asiste', 'Confirmado'))
         ensure_capacidad_no_superada(conection, id_reserva)
+        conection.commit()
 
         return jsonify({'mensaje': 'Reserva registrada correctamente', 'id_reserva': id_reserva}), 201
 
     except ValueError as ve:
+        conection.rollback()
         return jsonify({'error': str(ve)}), 400
     except Exception as e:
         conection.rollback()

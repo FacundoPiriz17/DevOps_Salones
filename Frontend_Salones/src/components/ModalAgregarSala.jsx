@@ -7,6 +7,7 @@ export default function ModalAgregarSala({ open, onClose, onConfirm, edificios =
         edificio: "",
         capacidad: "",
         tipo_sala: "Libre",
+        equipamiento: "",
         puntaje: "3",
     });
 
@@ -24,6 +25,7 @@ export default function ModalAgregarSala({ open, onClose, onConfirm, edificios =
             edificio: "",
             capacidad: "",
             tipo_sala: "Libre",
+            equipamiento: "",
             puntaje: "3",
         });
     };
@@ -35,6 +37,20 @@ export default function ModalAgregarSala({ open, onClose, onConfirm, edificios =
                 </h2>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Equipamiento
+                        </label>
+                        <input
+                            type="text"
+                            name="equipamiento"
+                            value={formData.equipamiento}
+                            onChange={handleChange}
+                            placeholder="Proyector, pizarra..."
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                    </div>
+
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             Nombre de la Sala *

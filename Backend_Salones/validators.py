@@ -135,19 +135,46 @@ def validar_cancelacion_reserva(id_reserva):
         con.close()
 
 def ensure_no_solapamiento_de_reserva(conn, nombre_sala, edificio, fecha, id_turno):
-    cur = conn.cursor()
+    cur = conn.cursor(dictionary=True)
+    # Lock the room row for the whole reservation transaction. This makes the
+    # availability check and the insert atomic for concurrent requests.
     cur.execute("""
-                SELECT 1
-                FROM reserva
-                WHERE edificio = %s
-                  AND fecha = %s
-                  AND id_turno = %s
-                  AND estado = 'Activa' LIMIT 1
-                """, (edificio, fecha, id_turno))
+                SELECT nombre_sala
+                FROM salasDeEstudio
+                WHERE nombre_sala = %s AND edificio = %s
+                FOR UPDATE
+                """, (nombre_sala, edificio))
+    if cur.fetchone() is None:
+        cur.close()
+        raise ValueError("La sala especificada no existe.")
+
+    cur.execute("""
+                SELECT solicitado.id_turno
+                FROM reserva r
+                JOIN turno ocupado ON ocupado.id_turno = r.id_turno
+                JOIN turno solicitado ON solicitado.id_turno = %s
+                WHERE r.edificio = %s
+                  AND r.nombre_sala = %s
+                  AND r.fecha = %s
+                  AND r.estado = 'Activa'
+                  AND ocupado.hora_inicio < solicitado.hora_fin
+                  AND ocupado.hora_fin > solicitado.hora_inicio
+                LIMIT 1
+                """, (id_turno, edificio, nombre_sala, fecha))
     exists = cur.fetchone()
     cur.close()
+    if exists is None:
+        # Distinguish an invalid shift from an available shift with no
+        # conflicting reservations.
+        check = conn.cursor()
+        check.execute("SELECT 1 FROM turno WHERE id_turno = %s", (id_turno,))
+        valid_turno = check.fetchone() is not None
+        check.close()
+        if not valid_turno:
+            raise ValueError("El turno especificado no existe.")
+        return
     if exists:
-        raise ValueError("Ya existe una reserva para esa sala, fecha y turno.")
+        raise ValueError("Ya existe una reserva solapada para esa sala, fecha y horario.")
 
 def ensure_capacidad_no_superada(conn, id_reserva):
     cur = conn.cursor(dictionary=True)

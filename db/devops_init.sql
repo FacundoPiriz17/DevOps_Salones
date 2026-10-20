@@ -53,11 +53,29 @@ CREATE TABLE edificio (
                           campus VARCHAR(64) NOT NULL CHECK (CHAR_LENGTH(campus) >= 5)
 );
 
+CREATE TABLE studyGroup (
+                            studyGroupId INT PRIMARY KEY AUTO_INCREMENT,
+                            studyGroupName VARCHAR(50) NOT NULL,
+                            status ENUM('Activo', 'Inactivo') DEFAULT 'Activo',
+                            leader INT NOT NULL,
+                            FOREIGN KEY (leader) REFERENCES usuario(ci)
+);
+
+CREATE TABLE studyGroupParticipant (
+                                       studyGroupId INT NOT NULL,
+                                       member INT NOT NULL,
+                                       PRIMARY KEY (studyGroupId, member),
+                                       FOREIGN KEY (studyGroupId) REFERENCES studyGroup(studyGroupId)
+                                           ON DELETE CASCADE,
+                                       FOREIGN KEY (member) REFERENCES usuario(ci)
+);
+
 CREATE TABLE salasDeEstudio (
                                 nombre_sala VARCHAR(32),
                                 edificio VARCHAR(64),
                                 capacidad INT NOT NULL CHECK (capacidad > 0),
                                 tipo_sala ENUM('Libre', 'Posgrado', 'Docente') NOT NULL,
+                                equipamiento TEXT NULL,
                                 disponible BOOLEAN DEFAULT TRUE,
                                 puntaje INT CHECK (puntaje BETWEEN 1 AND 5) DEFAULT 3,
                                 PRIMARY KEY (nombre_sala, edificio),
@@ -71,6 +89,16 @@ CREATE TABLE turno (
                        CONSTRAINT horario_valido CHECK (hora_inicio < hora_fin)
 );
 
+CREATE TABLE studyRoom (
+                          studyRoomId INT PRIMARY KEY AUTO_INCREMENT,
+                          roomName VARCHAR(32) NOT NULL,
+                          buildingName VARCHAR(64) NOT NULL,
+                          capacity INT NOT NULL CHECK (capacity > 0),
+                          roomType ENUM('Libre', 'Posgrado', 'Docente') DEFAULT 'Libre',
+                          FOREIGN KEY (buildingName) REFERENCES edificio(nombre_edificio),
+                          UNIQUE KEY uq_study_room (roomName, buildingName)
+);
+
 CREATE TABLE reserva (
                          id_reserva INT AUTO_INCREMENT PRIMARY KEY,
                          nombre_sala VARCHAR(32) NOT NULL,
@@ -78,11 +106,13 @@ CREATE TABLE reserva (
                          fecha DATE NOT NULL,
                          id_turno INT NOT NULL,
                          ci_organizador INT NOT NULL,
+                         studyGroupId INT NULL,
                          estado ENUM('Activa', 'Cancelada', 'Sin asistencia', 'Finalizada') DEFAULT 'Activa',
                          FOREIGN KEY (nombre_sala, edificio) REFERENCES salasDeEstudio(nombre_sala, edificio),
                          FOREIGN KEY (edificio) REFERENCES edificio(nombre_edificio),
                          FOREIGN KEY (id_turno) REFERENCES turno(id_turno),
-                         FOREIGN KEY (ci_organizador) REFERENCES usuario(ci)
+                         FOREIGN KEY (ci_organizador) REFERENCES usuario(ci),
+                         FOREIGN KEY (studyGroupId) REFERENCES studyGroup(studyGroupId)
 );
 
 CREATE TABLE reservaParticipante (

@@ -106,6 +106,7 @@ def crear_sala():
     edificio = data.get('edificio')
     capacidad = data.get('capacidad')
     tipo_sala = data.get('tipo_sala')
+    equipamiento = data.get('equipamiento')
     puntaje = data.get('puntaje', 3)
 
     if not all([nombre_sala, edificio, capacidad, tipo_sala]):
@@ -146,9 +147,10 @@ def crear_sala():
             return jsonify({'error': 'La sala ya existe en este edificio'}), 400
 
         cursor.execute("""
-                       INSERT INTO salasDeEstudio (nombre_sala, edificio, capacidad, tipo_sala, puntaje)
-                       VALUES (%s, %s, %s, %s, %s)
-                       """, (nombre_sala, edificio, capacidad_int, tipo_sala, punt))
+                       INSERT INTO salasDeEstudio
+                       (nombre_sala, edificio, capacidad, tipo_sala, equipamiento, puntaje)
+                       VALUES (%s, %s, %s, %s, %s, %s)
+                       """, (nombre_sala, edificio, capacidad_int, tipo_sala, equipamiento, punt))
         connection.commit()
 
         return jsonify({'mensaje': 'Sala creada correctamente'}), 201
@@ -173,8 +175,9 @@ def actualizar_sala(nombre_sala, edificio):
     tipo_sala = data.get('tipo_sala')
     disponible = data.get('disponible')
     puntaje = data.get('puntaje')
+    equipamiento = data.get('equipamiento')
 
-    if capacidad is None and tipo_sala is None and disponible is None and puntaje is None:
+    if capacidad is None and tipo_sala is None and disponible is None and puntaje is None and equipamiento is None:
         return jsonify({'error': 'No hay campos para actualizar'}), 400
 
     if capacidad is not None:
@@ -200,11 +203,31 @@ def actualizar_sala(nombre_sala, edificio):
     connection = get_connection()
     cursor = connection.cursor(dictionary=True)
     try:
-        cursor.execute("""
+        campos = []
+        valores = []
+        if capacidad is not None:
+            campos.append("capacidad = %s")
+            valores.append(capacidad_int)
+        if tipo_sala is not None:
+            if tipo_sala not in ('Libre', 'Posgrado', 'Docente'):
+                return jsonify({'error': 'tipo_sala inválido'}), 400
+            campos.append("tipo_sala = %s")
+            valores.append(tipo_sala)
+        if disponible is not None:
+            campos.append("disponible = %s")
+            valores.append(disponible)
+        if puntaje is not None:
+            campos.append("puntaje = %s")
+            valores.append(punt)
+        if equipamiento is not None:
+            campos.append("equipamiento = %s")
+            valores.append(equipamiento)
+        valores.extend([nombre_sala, edificio])
+        cursor.execute(f"""
             UPDATE salasDeEstudio
-            SET capacidad = %s, tipo_sala = %s, disponible = %s, puntaje = %s
+            SET {", ".join(campos)}
             WHERE nombre_sala = %s AND edificio = %s
-        """, (capacidad, tipo_sala, disponible, puntaje, nombre_sala, edificio))
+        """, valores)
         connection.commit()
 
         if cursor.rowcount == 0:
@@ -273,4 +296,3 @@ def cambiar_disponibilidad_sala():
     finally:
         cursor.close()
         connection.close()
-

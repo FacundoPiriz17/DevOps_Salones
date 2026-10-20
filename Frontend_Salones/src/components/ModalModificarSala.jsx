@@ -5,6 +5,7 @@ export default function ModalModificarSala({ open, onClose, onConfirm, sala }) {
   const [formData, setFormData] = useState({
     capacidad: "",
     tipo_sala: "Libre",
+    equipamiento: "",
     disponible: true,
     puntaje: "3",
   });
@@ -14,6 +15,7 @@ export default function ModalModificarSala({ open, onClose, onConfirm, sala }) {
       setFormData({
         capacidad: sala.capacidad?.toString() || "",
         tipo_sala: sala.tipo_sala || "Libre",
+        equipamiento: sala.equipamiento || "",
         disponible: sala.disponible ?? true,
         puntaje: sala.puntaje?.toString() || "3",
       });
@@ -69,6 +71,20 @@ export default function ModalModificarSala({ open, onClose, onConfirm, sala }) {
               <option value="Posgrado">Posgrado</option>
               <option value="Docente">Docente</option>
             </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="block w-full text-sm font-medium text-gray-700">
+              Equipamiento
+              <input
+                type="text"
+                name="equipamiento"
+                value={formData.equipamiento}
+                onChange={handleChange}
+                placeholder="Proyector, pizarra..."
+                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </label>
           </div>
 
           <div className="flex items-center gap-2">

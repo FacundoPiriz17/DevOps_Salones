@@ -154,7 +154,12 @@ export default function ReservaModal({
         async function loadTurnos() {
             try {
                 setLoadingTurnos(true);
-                const data = await apiFetch("/turnos/all", { token });
+                const sala = isAdmin ? form.nombre_sala : form.sala;
+                const edificioSeleccionado = isAdmin ? form.edificio : edificio;
+                const data = await apiFetch(
+                    `/turnos/disponibles?fecha=${encodeURIComponent(fechaSeleccionada)}&nombre_sala=${encodeURIComponent(sala)}&edificio=${encodeURIComponent(edificioSeleccionado)}`,
+                    { token }
+                );
                 setTurnos(Array.isArray(data) ? data : []);
             } finally {
                 setLoadingTurnos(false);
@@ -162,7 +167,16 @@ export default function ReservaModal({
         }
 
         loadTurnos();
-    }, [form.sala, form.fecha, form.nombre_sala, isAdmin, token, open]);
+    }, [
+        form.sala,
+        form.fecha,
+        form.nombre_sala,
+        form.edificio,
+        edificio,
+        isAdmin,
+        token,
+        open,
+    ]);
 
     // Prefill al editar (admin)
     useEffect(() => {
@@ -446,6 +460,7 @@ export default function ReservaModal({
                                     >
                                         {s.nombre_sala} · Capacidad {s.capacidad} ·{" "}
                                         {s.tipo_sala}
+                                        {s.equipamiento ? ` · ${s.equipamiento}` : ""}
                                         {noDisponible ? " — (No disponible)" : ""}
                                     </option>
                                 );

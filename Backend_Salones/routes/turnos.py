@@ -49,6 +49,41 @@ def turnos():
         cursor.close()
         conection.close()
 
+@turno_bp.route('/disponibles', methods=['GET'])
+@verificar_token
+def turnos_disponibles():
+    fecha = request.args.get("fecha")
+    nombre_sala = request.args.get("nombre_sala")
+    edificio = request.args.get("edificio")
+    if not all([fecha, nombre_sala, edificio]):
+        return jsonify({"error": "Se requieren fecha, nombre_sala y edificio"}), 400
+
+    conection = get_connection()
+    cursor = conection.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT t.*
+            FROM turno t
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM reserva r
+                JOIN turno ocupado ON ocupado.id_turno = r.id_turno
+                WHERE r.nombre_sala = %s
+                  AND r.edificio = %s
+                  AND r.fecha = %s
+                  AND r.estado = 'Activa'
+                  AND ocupado.hora_inicio < t.hora_fin
+                  AND ocupado.hora_fin > t.hora_inicio
+            )
+            ORDER BY t.hora_inicio
+        """, (nombre_sala, edificio, fecha))
+        return jsonify([serialize_turno(fila) for fila in cursor.fetchall()]), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cursor.close()
+        conection.close()
+
 @turno_bp.route('/turno/<int:id>', methods=['GET'])
 @verificar_token
 def turnoEspecifico(id):
