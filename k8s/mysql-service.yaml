@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: reservas-mysql
+  namespace: reservas-salones
+spec:
+  type: ClusterIP
+  selector:
+    app: reservas-mysql
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: mysql
