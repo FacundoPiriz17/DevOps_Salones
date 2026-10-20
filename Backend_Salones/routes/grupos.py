@@ -18,6 +18,7 @@ def listar_grupos():
     try:
         cur.execute("""
             SELECT g.studyGroupId, g.studyGroupName, g.status, g.leader,
+                   (g.leader = %s) AS isLeader,
                    COUNT(gp.member) AS participantCount
               FROM studyGroup g
               LEFT JOIN studyGroupParticipant gp
@@ -29,7 +30,7 @@ def listar_grupos():
              )
              GROUP BY g.studyGroupId, g.studyGroupName, g.status, g.leader
              ORDER BY g.studyGroupName
-        """, (_ci_actual(), _ci_actual()))
+        """, (_ci_actual(), _ci_actual(), _ci_actual()))
         return jsonify(cur.fetchall()), 200
     finally:
         cur.close()
