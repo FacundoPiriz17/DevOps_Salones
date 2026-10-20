@@ -12,3 +12,7 @@ venv/
 *.pyc
 *.log
 htmlcov/
+reports/
+.coverage
+.coverage.*
+coverage.xml
