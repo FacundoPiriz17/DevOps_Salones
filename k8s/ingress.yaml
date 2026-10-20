@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: reservas-salones
+  namespace: alumno-team9
+spec:
+  rules:
+    - host: salones-team9.reto-ucu.net
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: reservas-frontend
+                port:
+                  name: http

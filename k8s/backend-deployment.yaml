@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: reservas-backend
-  namespace: reservas-salones
+  namespace: alumno-team9
 spec:
   replicas: 1
   selector:
@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: flask
-          image: reservas-backend:1.0.0
+          image: salones-backend:replace-by-pipeline
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -24,26 +24,17 @@ spec:
           envFrom:
             - configMapRef:
                 name: reservas-config
-          env:
-            - name: DB_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: reservas-secret
-                  key: DB_USERNAME
-            - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: reservas-secret
-                  key: DB_PASSWORD
+            - secretRef:
+                name: reservas-secret
           readinessProbe:
             httpGet:
-              path: /health
+              path: /
               port: http
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /health
+              path: /
               port: http
             initialDelaySeconds: 15
             periodSeconds: 15
