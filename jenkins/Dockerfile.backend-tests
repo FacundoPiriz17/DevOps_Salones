@@ -1,0 +1,11 @@
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHON_DOTENV_DISABLED=1
+WORKDIR /API
+COPY requirements.txt requirements-dev.txt ./
+RUN pip install --no-cache-dir -r requirements-dev.txt
+COPY . .
+RUN mkdir /reports
+CMD ["python", "-m", "pytest", "-m", "not mysql", "--junitxml=/reports/backend-unit-junit.xml", "--cov=.", "--cov-report=xml:/reports/backend-coverage.xml", "--cov-report=term-missing"]
