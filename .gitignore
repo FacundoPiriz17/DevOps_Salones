@@ -1,0 +1,24 @@
+.tmp/
+**/node_modules/
+**/dist/
+**/__pycache__/
+**/*.pyc
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Local tools, environments and generated reports
+.venv/
+venv/
+.pytest_cache/
+.coverage
+coverage/
+htmlcov/
+test-results/
+playwright-report/
+*.log
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

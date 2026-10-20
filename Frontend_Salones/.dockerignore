@@ -1,0 +1,22 @@
+/node_modules
+.git
+.env
+.env.*
+!.env.example
+coverage/
+test-results/
+playwright-report/
+.gitignore
+README.md
+# Archivos de logg
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+# Archivos de build locales
+build/
+dist/
+
+.env
+
+# Cachés del sistema
+.DS_Store

@@ -1,0 +1,12 @@
+[
+  { "nombre_edificio": "Edificio Sacré Coeur", "imageUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQu0K9fBahe8i-5cdWdz428tDFdirdj66Inyg&s" },
+  { "nombre_edificio": "Edificio Semprún", "imageUrl": "https://www.ucu.edu.uy/imgnoticias/202304/W950_H580/1550.jpg" },
+  { "nombre_edificio": "Edificio Mullin", "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/0/0b/EDIFICIO_MULLIN_UCU.jpg" },
+  { "nombre_edificio": "Edificio San Ignacio", "imageUrl": "https://www.ucu.edu.uy/imgnoticias/202210/H950/912.jpg" },
+  { "nombre_edificio": "Edificio Athanasius", "imageUrl": "https://www.ucu.edu.uy/imgnoticias/202208/H950/140.jpeg" },
+  { "nombre_edificio": "Casa Xalambrí", "imageUrl": "https://www.ucu.edu.uy/imgnoticias/202306/2599.jpg" },
+  { "nombre_edificio": "Edificio San José", "imageUrl": "https://www.ucu.edu.uy/imgnoticias/202406/4171.jpg?0" },
+  { "nombre_edificio": "Campus Salto", "imageUrl": "https://www.ucu.edu.uy/imgnoticias/202304/H950/1626.jpg" },
+  { "nombre_edificio": "Edificio Candelaria", "imageUrl": "https://www.ucu.edu.uy/imgnoticias/202411/W950_H580/4797.jpg" },
+  { "nombre_edificio": "San Fernando", "imageUrl": "https://www.ucu.edu.uy/imgnoticias/202405/W950_H580/4022.jpg" }
+]

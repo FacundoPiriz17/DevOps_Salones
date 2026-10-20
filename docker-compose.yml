@@ -1,0 +1,77 @@
+services: 
+  frontend:
+    build: ./Frontend_Salones
+    ports: 
+      - "5173:5173"
+    depends_on:
+      - backend
+    environment:
+      API_PROXY_TARGET: http://backend:5000
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      - ./Frontend_Salones:/WEB
+      - frontend_node_modules:/WEB/node_modules
+    networks:
+      - devops
+    restart: always
+  
+  backend:
+    build: ./Backend_Salones
+    ports: 
+      - "5000:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_NAME: DevOpsSalones
+      DB_APP_USER: ucurooms_app
+      DB_APP_PASSWORD: ucurooms_password
+      DB_ADMIN_USER: ucurooms_admin
+      DB_ADMIN_PASSWORD: admin_pass
+      DB_FUNC_USER: ucurooms_funcionario
+      DB_FUNC_PASSWORD: funcionario_pass
+      DB_PART_USER: ucurooms_participante
+      DB_PART_PASSWORD: participante_pass
+      DB_LOGIN: ucurooms_login
+      DB_LOGIN_PASSWORD: login_pass
+      SECRET_KEY: super_clave_ultra_secreta_que_no_se_comparta
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+      PYTHONIOENCODING: utf-8
+    volumes:
+      - ./Backend_Salones:/API
+    networks:
+      - devops
+    restart: always
+    
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: DevOpsSalones
+    command:
+      [
+        "--character-set-server=utf8mb4",
+        "--collation-server=utf8mb4_unicode_ci"
+      ]
+    ports:
+      - "3307:3306"
+    networks:
+      - devops
+    volumes:
+      - ./db:/docker-entrypoint-initdb.d:ro
+      - devops_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+networks:
+  devops:
+
+volumes:
+  devops_data:
+  frontend_node_modules:
