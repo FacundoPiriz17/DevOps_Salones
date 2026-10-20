@@ -4,94 +4,127 @@ pipeline {
     options {
         skipDefaultCheckout()
         disableConcurrentBuilds()
+        timestamps()
+        timeout(time: 25, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '20', artifactNumToKeepStr: '10'))
     }
 
-    environment {
-        IMAGE_NAME = "api-notas:${env.BUILD_NUMBER}"
-        CONTAINER_NAME = 'api-notas'
-        DATA_VOLUME = 'api-notas-data'
-        HOST_PORT = '8082'
+    triggers {
+        pollSCM('H/5 * * * *')
+    }
+
+    parameters {
+        booleanParam(name: 'PUBLISH_IMAGES', defaultValue: false, description: 'Publicar las dos imágenes solo desde main; requiere configurar el registro y sus credenciales.')
+        string(name: 'REGISTRY_PREFIX', defaultValue: '', description: 'Ejemplo: docker.io/mi-equipo o registry.laboratorio.edu/equipo. Sin barra final.')
+        string(name: 'REGISTRY_HOST', defaultValue: 'docker.io', description: 'Host del registro para docker login, sin esquema ni ruta.')
+        string(name: 'REGISTRY_CREDENTIALS_ID', defaultValue: 'salones-registry', description: 'ID de credenciales Jenkins de tipo Username with password.')
     }
 
     stages {
-        stage('Clonar repositorio') {
+        stage('Checkout y entorno') {
             steps {
                 checkout scm
-            }
-        }
-
-        stage('Verificar Docker') {
-            steps {
-                sh 'docker info > /dev/null'
-            }
-        }
-
-        stage('Construir imagen') {
-            steps {
-                sh 'docker build -t "$IMAGE_NAME" .'
-            }
-        }
-
-        stage('Tests unitarios') {
-            steps {
-                sh '''
-                    docker run --rm "$IMAGE_NAME" \
-                        python -m unittest discover -s tests -v
-                '''
-            }
-        }
-
-        stage('Desplegar') {
-            steps {
-                sh '''
-                    set -eu
-
-                    docker volume create "$DATA_VOLUME"
-
-                    existing=$(docker ps -aq --filter "name=^/${CONTAINER_NAME}$")
-                    if [ -n "$existing" ]; then
-                        docker stop "$CONTAINER_NAME"
-                        docker rm "$CONTAINER_NAME"
-                    fi
-
-                    docker run -d \
-                        --name "$CONTAINER_NAME" \
-                        --restart unless-stopped \
-                        -p "${HOST_PORT}:5000" \
-                        -v "${DATA_VOLUME}:/data" \
-                        -e INSTANCE_NAME=jenkins \
-                        "$IMAGE_NAME"
-                '''
-            }
-        }
-
-        stage('Verificar respuesta') {
-            steps {
-                retry(5) {
-                    sleep time: 2, unit: 'SECONDS'
+                script {
+                    env.CI_BRANCH = (env.GIT_BRANCH ?: '').replaceFirst('^origin/', '')
+                    if (env.CI_BRANCH != 'main') {
+                        error('Este job acepta únicamente main. Configurá Branch Specifier como */main.')
+                    }
                     sh '''
-                        docker exec "$CONTAINER_NAME" python -c \
-                            "import urllib.request; r = urllib.request.urlopen('http://127.0.0.1:5000/', timeout=5); assert r.status == 200"
+                        set -eu
+                        test "$(git rev-parse HEAD)" = "$(git rev-parse refs/remotes/origin/main)"
+                        docker info > /dev/null
                     '''
+                    def jobId = sh(script: 'printf "%s" "$JOB_NAME" | cksum | cut -d " " -f 1', returnStdout: true).trim()
+                    env.CI_RUN_ID = "salones-ci-${jobId}-${env.BUILD_NUMBER}"
                 }
+                dir('reports') {
+                    deleteDir()
+                }
+                sh 'mkdir -p reports'
+            }
+        }
+
+        stage('Pruebas unitarias del backend') {
+            steps {
+                sh 'sh jenkins/ci.sh unit'
             }
             post {
-                failure {
-                    sh 'docker logs --tail 100 "$CONTAINER_NAME" || true'
+                always {
+                    script {
+                        if (fileExists('reports/backend-unit-junit.xml')) {
+                            junit testResults: 'reports/backend-unit-junit.xml', allowEmptyResults: false
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Integración con MySQL temporal') {
+            steps {
+                sh 'sh jenkins/ci.sh integration'
+            }
+            post {
+                always {
+                    script {
+                        if (fileExists('reports/backend-mysql-junit.xml')) {
+                            junit testResults: 'reports/backend-mysql-junit.xml', allowEmptyResults: false
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Validar frontend y construir imágenes') {
+            steps {
+                sh 'sh jenkins/ci.sh images'
+            }
+        }
+
+        stage('Publicar imágenes') {
+            when {
+                expression { params.PUBLISH_IMAGES && env.CI_BRANCH == 'main' }
+            }
+            steps {
+                script {
+                    if (!params.REGISTRY_PREFIX.trim()) {
+                        error('Configurá REGISTRY_PREFIX antes de habilitar la publicación.')
+                    }
+                }
+                withCredentials([usernamePassword(credentialsId: params.REGISTRY_CREDENTIALS_ID, usernameVariable: 'REGISTRY_USER', passwordVariable: 'REGISTRY_PASSWORD')]) {
+                    sh '''
+                        set -eu
+                        case "$REGISTRY_HOST" in
+                            ''|-*|*[!a-zA-Z0-9.:-]*) echo 'REGISTRY_HOST inválido' >&2; exit 2 ;;
+                        esac
+                        DOCKER_CONFIG=$(mktemp -d)
+                        export DOCKER_CONFIG
+                        trap 'rm -rf "$DOCKER_CONFIG"' EXIT HUP INT TERM
+                        set +x
+                        printf '%s' "$REGISTRY_PASSWORD" | docker login "$REGISTRY_HOST" --username "$REGISTRY_USER" --password-stdin
+                        sh jenkins/ci.sh publish
+                    '''
                 }
             }
         }
     }
 
     post {
+        always {
+            script {
+                try {
+                    archiveArtifacts artifacts: 'reports/**', allowEmptyArchive: true
+                } finally {
+                    if (env.CI_RUN_ID) {
+                        sh 'sh jenkins/ci.sh cleanup'
+                    }
+                }
+            }
+        }
         success {
-            echo "API desplegada y verificada. Puerto del host Docker: ${env.HOST_PORT}"
+            echo 'Salones: pruebas completadas e imágenes construidas. Ver reportes JUnit, cobertura y reports/images.json.'
         }
         failure {
-            echo 'El pipeline falló. Revisá los logs de la etapa.'
-        }
-        cleanup {
-            deleteDir()
+            echo 'Falló la validación de Salones. No se ejecutan las etapas siguientes; revisar los reportes del build.'
         }
     }
 }
