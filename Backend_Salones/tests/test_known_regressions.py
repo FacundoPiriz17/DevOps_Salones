@@ -1,4 +1,4 @@
-"""Known defects: strict XFAIL records them without asserting incorrect behavior as correct."""
+"""Regression tests for booking overlap and transaction atomicity."""
 from datetime import date, timedelta
 
 import pytest
@@ -7,7 +7,6 @@ import routes.reservas as booking_routes
 import validators
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason='Overlap query ignores nombre_sala; pending business-logic fix')
 def test_overlap_lookup_is_scoped_to_the_requested_room(database):
     connection, cursor = database
     cursor.fetchone.return_value = None
@@ -17,7 +16,6 @@ def test_overlap_lookup_is_scoped_to_the_requested_room(database):
     assert 'Sala A' in arguments
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason='Reservation commits before user-limit validation; pending atomicity fix')
 def test_rejected_user_limit_never_commits_reservation(client, auth_headers, database, monkeypatch):
     connection, cursor = database
     cursor.fetchone.return_value = (1,)

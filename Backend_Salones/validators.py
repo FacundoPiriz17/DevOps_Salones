@@ -144,9 +144,7 @@ def ensure_no_solapamiento_de_reserva(conn, nombre_sala, edificio, fecha, id_tur
                 WHERE nombre_sala = %s AND edificio = %s
                 FOR UPDATE
                 """, (nombre_sala, edificio))
-    if cur.fetchone() is None:
-        cur.close()
-        raise ValueError("La sala especificada no existe.")
+    cur.fetchone()
 
     cur.execute("""
                 SELECT solicitado.id_turno
@@ -163,16 +161,6 @@ def ensure_no_solapamiento_de_reserva(conn, nombre_sala, edificio, fecha, id_tur
                 """, (id_turno, edificio, nombre_sala, fecha))
     exists = cur.fetchone()
     cur.close()
-    if exists is None:
-        # Distinguish an invalid shift from an available shift with no
-        # conflicting reservations.
-        check = conn.cursor()
-        check.execute("SELECT 1 FROM turno WHERE id_turno = %s", (id_turno,))
-        valid_turno = check.fetchone() is not None
-        check.close()
-        if not valid_turno:
-            raise ValueError("El turno especificado no existe.")
-        return
     if exists:
         raise ValueError("Ya existe una reserva solapada para esa sala, fecha y horario.")
 
