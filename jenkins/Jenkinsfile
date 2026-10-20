@@ -14,10 +14,15 @@ pipeline {
     }
 
     parameters {
-        booleanParam(name: 'PUBLISH_IMAGES', defaultValue: false, description: 'Publicar las dos imágenes solo desde main; requiere configurar el registro y sus credenciales.')
-        string(name: 'REGISTRY_PREFIX', defaultValue: '', description: 'Ejemplo: docker.io/mi-equipo o registry.laboratorio.edu/equipo. Sin barra final.')
+        booleanParam(name: 'PUBLISH_IMAGES', defaultValue: true, description: 'Publicar las dos imágenes solo desde main; requiere configurar el registro y sus credenciales.')
+        booleanParam(name: 'DEPLOY_TO_KUBERNETES', defaultValue: true, description: 'Publicar y desplegar main en el laboratorio. Requiere PUBLISH_IMAGES y las credenciales indicadas.')
+        string(name: 'REGISTRY_PREFIX', defaultValue: 'docker.io/facundopiriz17', description: 'Registro/cuenta de las imágenes, sin barra final.')
         string(name: 'REGISTRY_HOST', defaultValue: 'docker.io', description: 'Host del registro para docker login, sin esquema ni ruta.')
         string(name: 'REGISTRY_CREDENTIALS_ID', defaultValue: 'salones-registry', description: 'ID de credenciales Jenkins de tipo Username with password.')
+        string(name: 'KUBECONFIG_CREDENTIALS_ID', defaultValue: 'salones-kubeconfig', description: 'Credencial Secret file con kubeconfig del laboratorio.')
+        string(name: 'APP_SECRETS_CREDENTIALS_ID', defaultValue: 'salones-app-secrets', description: 'Credencial Secret file con variables según jenkins/app-secrets.env.example.')
+        string(name: 'K8S_NAMESPACE', defaultValue: 'alumno-team9', description: 'Namespace preexistente asignado al equipo.')
+        string(name: 'APP_HOST', defaultValue: 'salones-team9.reto-ucu.net', description: 'Hostname público del Ingress, sin esquema ni ruta.')
     }
 
     stages {
@@ -28,6 +33,12 @@ pipeline {
                     env.CI_BRANCH = (env.GIT_BRANCH ?: '').replaceFirst('^origin/', '')
                     if (env.CI_BRANCH != 'main') {
                         error('Este job acepta únicamente main. Configurá Branch Specifier como */main.')
+                    }
+                    if (params.DEPLOY_TO_KUBERNETES && !params.PUBLISH_IMAGES) {
+                        error('El despliegue requiere PUBLISH_IMAGES para que el clúster pueda descargar esta versión.')
+                    }
+                    if (params.PUBLISH_IMAGES && !params.REGISTRY_PREFIX.trim()) {
+                        error('Configurá REGISTRY_PREFIX antes de habilitar la publicación.')
                     }
                     sh '''
                         set -eu
@@ -80,6 +91,18 @@ pipeline {
             }
         }
 
+        stage('Verificar imágenes de producción') {
+            steps {
+                sh 'sh jenkins/smoke.sh'
+            }
+        }
+
+        stage('Validar manifiestos de Kubernetes') {
+            steps {
+                sh 'REGISTRY_PREFIX="${REGISTRY_PREFIX:-docker.io/unpublished}" sh jenkins/deploy.sh render'
+            }
+        }
+
         stage('Publicar imágenes') {
             when {
                 expression { params.PUBLISH_IMAGES && env.CI_BRANCH == 'main' }
@@ -106,6 +129,20 @@ pipeline {
                 }
             }
         }
+
+        stage('Desplegar en Kubernetes del laboratorio') {
+            when {
+                expression { params.DEPLOY_TO_KUBERNETES && env.CI_BRANCH == 'main' }
+            }
+            steps {
+                withCredentials([
+                    file(credentialsId: params.KUBECONFIG_CREDENTIALS_ID, variable: 'KUBECONFIG'),
+                    file(credentialsId: params.APP_SECRETS_CREDENTIALS_ID, variable: 'APP_SECRETS_FILE')
+                ]) {
+                    sh 'sh jenkins/deploy.sh deploy'
+                }
+            }
+        }
     }
 
     post {
@@ -121,7 +158,7 @@ pipeline {
             }
         }
         success {
-            echo 'Salones: pruebas completadas e imágenes construidas. Ver reportes JUnit, cobertura y reports/images.json.'
+            echo 'Salones: etapas habilitadas completadas. Ver JUnit, cobertura, imágenes y deployment-url.txt si se habilitó el despliegue.'
         }
         failure {
             echo 'Falló la validación de Salones. No se ejecutan las etapas siguientes; revisar los reportes del build.'

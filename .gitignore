@@ -24,3 +24,5 @@ playwright-report/
 Thumbs.db
 reports/
 **/.coverage.*
+jenkins/app-secrets.env
+*.kubeconfig

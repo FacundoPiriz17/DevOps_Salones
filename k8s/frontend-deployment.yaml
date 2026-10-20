@@ -3,6 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: reservas-frontend
+  namespace: alumno-team9
   labels:
     app: reservas-frontend
 spec:
@@ -17,7 +18,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: reservas-frontend:1.0.0
+          image: salones-frontend:replace-by-pipeline
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -34,3 +35,10 @@ spec:
               port: http
             initialDelaySeconds: 15
             periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi

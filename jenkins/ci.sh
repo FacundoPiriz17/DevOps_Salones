@@ -19,10 +19,11 @@ REPORTS=reports
 mkdir -p "$REPORTS"
 
 cleanup() {
-    for suffix in unit mysql frontend db; do
+    for suffix in unit mysql frontend db prod-db prod-backend prod-frontend; do
         docker rm -fv "$CI_RUN_ID-$suffix" >/dev/null 2>&1 || true
     done
     docker network rm "$CI_RUN_ID" >/dev/null 2>&1 || true
+    docker network rm "$CI_RUN_ID-prod" >/dev/null 2>&1 || true
 }
 
 # docker cp works even when the Jenkins workspace is inside another container.
@@ -77,10 +78,8 @@ integration() {
 }
 
 images() {
-    docker build -t "$FRONTEND_IMAGE" Frontend_Salones
-    docker create --name "$CI_RUN_ID-frontend" "$FRONTEND_IMAGE" sh -ec 'npm run lint && npm run build' >/dev/null
-    run_container "$CI_RUN_ID-frontend" no
-    docker build -t "$BACKEND_IMAGE" Backend_Salones
+    docker build -f jenkins/Dockerfile.frontend.production -t "$FRONTEND_IMAGE" Frontend_Salones
+    docker build -f jenkins/Dockerfile.backend.production -t "$BACKEND_IMAGE" Backend_Salones
     printf '{"backend":"%s","frontend":"%s"}\n' "$BACKEND_IMAGE" "$FRONTEND_IMAGE" > "$REPORTS/images.json"
 }
 
@@ -107,6 +106,6 @@ case "${1:-all}" in
     images) images ;;
     publish) publish ;;
     cleanup) cleanup ;;
-    all) trap cleanup EXIT HUP INT TERM; unit; integration; images ;;
+    all) trap cleanup EXIT HUP INT TERM; unit; integration; images; sh jenkins/smoke.sh ;;
     *) echo 'Usage: sh jenkins/ci.sh [all|unit|integration|images|publish|cleanup]' >&2; exit 2 ;;
 esac

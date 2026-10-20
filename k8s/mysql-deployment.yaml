@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: reservas-mysql
-  namespace: reservas-salones
+  namespace: alumno-team9
 spec:
   replicas: 1
   strategy:
@@ -18,10 +18,13 @@ spec:
     spec:
       containers:
         - name: mysql
-          image: mysql:8.4
+          image: mysql:8.0
           ports:
             - name: mysql
               containerPort: 3306
+          envFrom:
+            - secretRef:
+                name: reservas-secret
           env:
             - name: MYSQL_DATABASE
               valueFrom:
@@ -33,27 +36,24 @@ spec:
                 secretKeyRef:
                   name: reservas-secret
                   key: MYSQL_ROOT_PASSWORD
-            - name: MYSQL_USER
-              valueFrom:
-                secretKeyRef:
-                  name: reservas-secret
-                  key: MYSQL_USER
-            - name: MYSQL_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: reservas-secret
-                  key: MYSQL_PASSWORD
           readinessProbe:
             exec:
               command:
                 - sh
                 - -c
-                - 'mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD"'
+                - 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -h 127.0.0.1 -uroot -Nse "SELECT 1 FROM DevOpsSalones.usuario LIMIT 1"'
             initialDelaySeconds: 10
             periodSeconds: 5
           volumeMounts:
             - name: mysql-data
               mountPath: /var/lib/mysql
+            - name: mysql-init
+              mountPath: /docker-entrypoint-initdb.d/01-init.sh
+              subPath: init.sh
+              readOnly: true
+            - name: mysql-init
+              mountPath: /opt/salones-init
+              readOnly: true
           resources:
             requests:
               cpu: 100m
@@ -64,5 +64,7 @@ spec:
       volumes:
         - name: mysql-data
           persistentVolumeClaim:
-            claimName: reservas-mysql-pvc
-            
+            claimName: reservas-data
+        - name: mysql-init
+          configMap:
+            name: reservas-mysql-init
