@@ -5,6 +5,12 @@ import { env } from 'node:process'
 
 // https://vite.dev/config/
 export default defineConfig({
+    build: {
+        commonjsOptions: {
+            // CanvasJS combines CommonJS require() with an ES module export.
+            transformMixedEsModules: true,
+        },
+    },
     server: {
         host: "0.0.0.0",
         port: 5173,
