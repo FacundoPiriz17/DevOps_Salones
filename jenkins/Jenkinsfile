@@ -25,6 +25,8 @@ pipeline {
         string(name: 'APP_HOST', defaultValue: 'salones-team9.reto-ucu.net', description: 'Hostname público del Ingress, sin esquema ni ruta.')
         choice(name: 'APP_SCHEME', choices: ['https', 'http'], description: 'Protocolo de la URL pública. En este laboratorio HTTP apunta al sitio del Coro; usar HTTPS.')
         string(name: 'INGRESS_CLASS', defaultValue: 'apisix', description: 'Clase del controlador que publica la aplicación en el laboratorio.')
+        choice(name: 'PUBLIC_TLS_POLICY', choices: ['pinned-lab', 'strict'], description: 'Excepción temporal del laboratorio: solo chequeo anónimo de salones-team9 y con clave pública fijada. strict exige certificado válido.')
+        string(name: 'LAB_TLS_PUBLIC_KEY_PIN', defaultValue: 'sha256//6CPD0jhjNe+e2vHadtfc3GiOnozYlc8l+aGWlEvRJQE=', description: 'Huella pública del certificado del laboratorio. No es una contraseña; una clave distinta bloquea la excepción.')
     }
 
     stages {
@@ -65,7 +67,7 @@ pipeline {
                 always {
                     script {
                         if (fileExists('reports/backend-unit-junit.xml')) {
-                            junit testResults: 'reports/backend-unit-junit.xml', allowEmptyResults: false
+                            junit testResults: 'reports/*unit-junit.xml', allowEmptyResults: false
                         }
                     }
                 }
@@ -142,6 +144,25 @@ pipeline {
                     file(credentialsId: params.APP_SECRETS_CREDENTIALS_ID, variable: 'APP_SECRETS_FILE')
                 ]) {
                     sh 'sh jenkins/deploy.sh deploy'
+                }
+            }
+        }
+
+        stage('Verificar URL pública') {
+            when {
+                expression { params.DEPLOY_TO_KUBERNETES && env.CI_BRANCH == 'main' }
+            }
+            steps {
+                withEnv([
+                    "PUBLIC_TLS_POLICY=${params.PUBLIC_TLS_POLICY}",
+                    "LAB_TLS_PUBLIC_KEY_PIN=${params.LAB_TLS_PUBLIC_KEY_PIN}"
+                ]) {
+                    sh 'sh jenkins/verify-public.sh'
+                }
+                script {
+                    if (fileExists('reports/public-tls-warning.txt')) {
+                        currentBuild.description = 'main: desplegado; excepción TLS temporal del laboratorio con clave fijada'
+                    }
                 }
             }
         }
