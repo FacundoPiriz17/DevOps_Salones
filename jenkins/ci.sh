@@ -19,7 +19,7 @@ REPORTS=reports
 mkdir -p "$REPORTS"
 
 cleanup() {
-    for suffix in unit mysql frontend db prod-db prod-backend prod-frontend; do
+    for suffix in unit pipeline mysql frontend db prod-db prod-backend prod-frontend; do
         docker rm -fv "$CI_RUN_ID-$suffix" >/dev/null 2>&1 || true
     done
     docker network rm "$CI_RUN_ID" >/dev/null 2>&1 || true
@@ -50,6 +50,11 @@ unit() {
     docker build -f jenkins/Dockerfile.backend-tests -t "$TEST_IMAGE" Backend_Salones
     docker create --name "$CI_RUN_ID-unit" "$TEST_IMAGE" >/dev/null
     run_container "$CI_RUN_ID-unit" yes
+    docker create --name "$CI_RUN_ID-pipeline" -e PUBLIC_CHECK_SCRIPT=/pipeline/verify-public.sh \
+        "$TEST_IMAGE" python -m pytest /pipeline --junitxml=/reports/pipeline-unit-junit.xml >/dev/null
+    docker cp jenkins/tests "$CI_RUN_ID-pipeline:/pipeline"
+    docker cp jenkins/verify-public.sh "$CI_RUN_ID-pipeline:/pipeline/verify-public.sh"
+    run_container "$CI_RUN_ID-pipeline" yes
 }
 
 integration() {
