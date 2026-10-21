@@ -4,6 +4,10 @@ cd "$(dirname "$0")/.."
 : "${CI_RUN_ID:?Missing CI_RUN_ID}"
 : "${REGISTRY_PREFIX:?Missing REGISTRY_PREFIX}"
 APP_HOST=${APP_HOST:-salones-team9.reto-ucu.net}
+APP_SCHEME=${APP_SCHEME:-https}
+case "$APP_SCHEME" in https|http) ;; *) echo 'APP_SCHEME must be https or http' >&2; exit 2 ;; esac
+INGRESS_CLASS=${INGRESS_CLASS:-apisix}
+printf '%s\n' "$INGRESS_CLASS" | grep -Eq '^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$' || exit 2
 K8S_NAMESPACE=${K8S_NAMESPACE:-alumno-team9}
 case "$CI_RUN_ID" in salones-ci-*) ;; *) exit 2 ;; esac
 case "$CI_RUN_ID$REGISTRY_PREFIX" in *[!a-z0-9./:_-]*) echo 'Invalid image reference' >&2; exit 2 ;; esac
@@ -21,6 +25,7 @@ render() {
         -e "s|salones-backend:replace-by-pipeline|$REGISTRY_PREFIX/salones-backend:$CI_RUN_ID|g" \
         -e "s|salones-frontend:replace-by-pipeline|$REGISTRY_PREFIX/salones-frontend:$CI_RUN_ID|g" \
         -e "s|namespace: alumno-team9|namespace: $K8S_NAMESPACE|g" \
+        -e "s|ingressClassName: apisix|ingressClassName: $INGRESS_CLASS|g" \
         -e "s|salones-team9\.reto-ucu\.net|$APP_HOST|g" \
         reports/k8s-base.yaml > reports/k8s-rendered.yaml
     rm reports/k8s-base.yaml
@@ -51,10 +56,22 @@ deploy() {
     # Exercise both the served app and its API proxy inside the cluster.
     kubectl -n "$K8S_NAMESPACE" exec deployment/reservas-frontend -- \
         sh -ec 'wget -qO /dev/null http://127.0.0.1/; wget -qO /dev/null http://127.0.0.1/api/'
+    curl_status=0
     curl --fail --location --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors \
-        --connect-timeout 10 --max-time 15 "http://$APP_HOST/api/" > reports/deployed-api.txt
-    grep -q 'Proyecto DevOps' reports/deployed-api.txt
-    printf 'http://%s\n' "$APP_HOST" > reports/deployment-url.txt
+        --connect-timeout 10 --max-time 15 "$APP_SCHEME://$APP_HOST/api/" > reports/deployed-api.txt || curl_status=$?
+    if [ "$curl_status" -ne 0 ]; then
+        if [ "$curl_status" -eq 60 ]; then
+            echo 'The laboratory HTTPS certificate is invalid or expired. Ask its administrator to renew it.' >&2
+        else
+            echo 'Public URL verification failed; inspect the Ingress and laboratory routing.' >&2
+        fi
+        exit "$curl_status"
+    fi
+    grep -q 'Proyecto DevOps' reports/deployed-api.txt || {
+        echo 'Public URL did not return the Salones API. Check the laboratory routing and Ingress.' >&2
+        exit 1
+    }
+    printf '%s://%s\n' "$APP_SCHEME" "$APP_HOST" > reports/deployment-url.txt
 }
 
 case "${1:-render}" in

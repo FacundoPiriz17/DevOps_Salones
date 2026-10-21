@@ -4,6 +4,7 @@ metadata:
   name: reservas-salones
   namespace: alumno-team9
 spec:
+  ingressClassName: apisix
   rules:
     - host: salones-team9.reto-ucu.net
       http:

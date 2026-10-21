@@ -23,6 +23,8 @@ pipeline {
         string(name: 'APP_SECRETS_CREDENTIALS_ID', defaultValue: 'salones-app-secrets', description: 'Credencial Secret file con variables según jenkins/app-secrets.env.example.')
         string(name: 'K8S_NAMESPACE', defaultValue: 'alumno-team9', description: 'Namespace preexistente asignado al equipo.')
         string(name: 'APP_HOST', defaultValue: 'salones-team9.reto-ucu.net', description: 'Hostname público del Ingress, sin esquema ni ruta.')
+        choice(name: 'APP_SCHEME', choices: ['https', 'http'], description: 'Protocolo de la URL pública. En este laboratorio HTTP apunta al sitio del Coro; usar HTTPS.')
+        string(name: 'INGRESS_CLASS', defaultValue: 'apisix', description: 'Clase del controlador que publica la aplicación en el laboratorio.')
     }
 
     stages {
