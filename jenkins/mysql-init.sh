@@ -1,5 +1,7 @@
 #!/bin/sh
 # Runs only when MySQL initializes an empty PVC. Never echoes database passwords.
+# MySQL sources non-executable .sh files; isolate shell options and traps from its entrypoint.
+(
 set -eu
 set +x
 for variable in DB_LOGIN_PASSWORD DB_APP_PASSWORD DB_ADMIN_PASSWORD DB_FUNC_PASSWORD DB_PART_PASSWORD; do
@@ -21,3 +23,4 @@ sed \
 MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --protocol=socket -uroot < "$sql_file"
 rm -f "$sql_file"
 trap - EXIT HUP INT TERM
+)

@@ -25,9 +25,11 @@ docker create --name "$db_container" --network "$network" \
     -e DB_ADMIN_PASSWORD=ci-admin-password-123456789 \
     -e DB_FUNC_PASSWORD=ci-staff-password-123456789 \
     -e DB_PART_PASSWORD=ci-student-password-123456789 \
-    mysql:8.0 >/dev/null
+    --entrypoint sh mysql:8.0 -ec \
+    'chmod 0444 /docker-entrypoint-initdb.d/01-init.sh; exec /usr/local/bin/docker-entrypoint.sh mysqld' >/dev/null
 docker cp db "$db_container:/opt/salones-init"
 docker cp jenkins/mysql-init.sh "$db_container:/docker-entrypoint-initdb.d/01-init.sh"
+# The entrypoint wrapper forces ConfigMap mode, including when run from Windows.
 docker start "$db_container" >/dev/null
 wait_database() {
     attempt=0
